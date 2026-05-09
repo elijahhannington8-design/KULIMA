@@ -1,0 +1,245 @@
+// Kulima Platform Database Schema
+// Production-grade schema for agriculture platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum Role {
+  FARMER
+  BUYER
+  ADMIN
+}
+
+enum CropCycleStatus {
+  PLANNED
+  ACTIVE
+  HARVESTED
+  FAILED
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  SOLD
+  EXPIRED
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum NotificationType {
+  OFFER_RECEIVED
+  OFFER_ACCEPTED
+  OFFER_REJECTED
+  PRICE_ALERT
+  WEATHER_ALERT
+}
+
+enum NotificationChannel {
+  SMS
+  EMAIL
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum LoanStatus {
+  PENDING
+  APPROVED
+  DISBURSED
+  REPAID
+  DEFAULTED
+}
+
+// Models
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  passwordHash String
+  role         Role
+  phoneNumber  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relationships
+  farmer        Farmer?
+  buyer         Buyer?
+  notifications Notification[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Farmer {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  fullName   String
+  location   String
+  nationalId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relationships
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farms       Farm[]
+  listings    Listing[]
+  loanProfile LoanProfile?
+
+  @@index([userId])
+}
+
+model Buyer {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  businessName String
+  businessType String
+  location     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relationships
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offers Offer[]
+
+  @@index([userId])
+}
+
+model Farm {
+  id          String   @id @default(cuid())
+  farmerId    String
+  name        String
+  location    String
+  sizeInAcres Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  farmer     Farmer      @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  cropCycles CropCycle[]
+
+  @@index([farmerId])
+}
+
+model CropCycle {
+  id                  String           @id @default(cuid())
+  farmId              String
+  cropType            String
+  plantingDate        DateTime
+  expectedHarvestDate DateTime
+  actualHarvestDate   DateTime?
+  status              CropCycleStatus
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  // Relationships
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([status])
+}
+
+model Listing {
+  id           String        @id @default(cuid())
+  farmerId     String
+  cropType     String
+  quantity     Float
+  pricePerUnit Float
+  status       ListingStatus
+  description  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relationships
+  farmer Farmer  @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  offers Offer[]
+
+  @@index([farmerId])
+  @@index([status])
+  @@index([farmerId, status])
+}
+
+model Offer {
+  id          String      @id @default(cuid())
+  listingId   String
+  buyerId     String
+  offerAmount Float
+  status      OfferStatus
+  message     String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relationships
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyer   Buyer   @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@index([buyerId])
+  @@index([status])
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  type      NotificationType
+  channel   NotificationChannel
+  message   String
+  status    NotificationStatus
+  sentAt    DateTime?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, status])
+}
+
+model MarketPrice {
+  id           String   @id @default(cuid())
+  cropType     String
+  pricePerUnit Float
+  location     String
+  date         DateTime
+  source       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([date])
+  @@index([location])
+  @@index([cropType, location, date])
+}
+
+model LoanProfile {
+  id              String      @id @default(cuid())
+  farmerId        String      @unique
+  loanAmount      Float
+  interestRate    Float
+  status          LoanStatus
+  disbursementDate DateTime?
+  repaymentDate   DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relationships
+  farmer Farmer @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+
+  @@index([farmerId])
+  @@index([status])
+}
