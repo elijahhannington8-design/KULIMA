@@ -1,5 +1,5 @@
 // Kulima Platform Database Schema
-// Production-grade schema for agriculture platform
+// Multi-Role Agricultural Ecosystem Platform
 
 generator client {
   provider = "prisma-client-js"
@@ -10,13 +10,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enums
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+// User Role Types (for reference, not stored directly on User)
 enum Role {
   FARMER
   BUYER
+  SUPPLIER
   ADMIN
 }
 
+// Supplier Categories
+enum SupplierType {
+  SEED
+  FERTILIZER
+  EQUIPMENT
+  IRRIGATION
+  AGROCHEMICAL
+  LIVESTOCK_FEED
+}
+
+// Admin Permission Levels
+enum AdminRole {
+  SUPER_ADMIN
+  MODERATOR
+  SUPPORT
+}
+
+// Existing Enums
 enum CropCycleStatus {
   PLANNED
   ACTIVE
@@ -38,12 +61,23 @@ enum OfferStatus {
   WITHDRAWN
 }
 
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
 enum NotificationType {
   OFFER_RECEIVED
   OFFER_ACCEPTED
   OFFER_REJECTED
   PRICE_ALERT
   WEATHER_ALERT
+  ORDER_PLACED
+  ORDER_SHIPPED
+  VERIFICATION_APPROVED
 }
 
 enum NotificationChannel {
@@ -66,24 +100,33 @@ enum LoanStatus {
   DEFAULTED
 }
 
-// Models
-model User {
-  id           String         @id @default(cuid())
-  email        String         @unique
-  passwordHash String
-  role         Role
-  phoneNumber  String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+// ============================================================================
+// CORE USER MODEL
+// ============================================================================
 
-  // Relationships
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  phoneNumber  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Multi-Role Relationships (Optional - user can have 0 or more roles)
   farmer        Farmer?
   buyer         Buyer?
+  supplier      Supplier?
+  admin         Admin?
+  
+  // Shared Relationships
   notifications Notification[]
 
   @@index([email])
-  @@index([role])
 }
+
+// ============================================================================
+// ROLE PROFILE MODELS
+// ============================================================================
 
 model Farmer {
   id         String   @id @default(cuid())
@@ -91,6 +134,7 @@ model Farmer {
   fullName   String
   location   String
   nationalId String?
+  verified   Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -101,6 +145,7 @@ model Farmer {
   loanProfile LoanProfile?
 
   @@index([userId])
+  @@index([verified])
 }
 
 model Buyer {
@@ -109,6 +154,7 @@ model Buyer {
   businessName String
   businessType String
   location     String
+  verified     Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -117,7 +163,99 @@ model Buyer {
   offers Offer[]
 
   @@index([userId])
+  @@index([verified])
 }
+
+model Supplier {
+  id              String       @id @default(cuid())
+  userId          String       @unique
+  businessName    String
+  supplierType    SupplierType
+  location        String
+  businessLicense String?
+  verified        Boolean      @default(false)
+  verifiedAt      DateTime?
+  rating          Float?       @default(0)
+  description     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relationships
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products SupplierProduct[]
+  orders   SupplierOrder[]
+
+  @@index([userId])
+  @@index([supplierType])
+  @@index([verified])
+}
+
+model Admin {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  adminRole AdminRole @default(MODERATOR)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([adminRole])
+}
+
+// ============================================================================
+// SUPPLIER ECOSYSTEM MODELS
+// ============================================================================
+
+model SupplierProduct {
+  id          String   @id @default(cuid())
+  supplierId  String
+  name        String
+  description String?
+  category    String
+  price       Float
+  unit        String
+  stock       Int
+  imageUrl    String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  supplier Supplier        @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  orders   SupplierOrder[]
+
+  @@index([supplierId])
+  @@index([active])
+  @@index([category])
+}
+
+model SupplierOrder {
+  id         String      @id @default(cuid())
+  supplierId String
+  buyerId    String
+  productId  String
+  quantity   Int
+  totalPrice Float
+  status     OrderStatus @default(PENDING)
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // Relationships
+  supplier Supplier        @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  product  SupplierProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@index([buyerId])
+  @@index([productId])
+  @@index([status])
+}
+
+// ============================================================================
+// EXISTING FARMER ECOSYSTEM MODELS (Unchanged)
+// ============================================================================
 
 model Farm {
   id          String   @id @default(cuid())
@@ -227,15 +365,15 @@ model MarketPrice {
 }
 
 model LoanProfile {
-  id              String      @id @default(cuid())
-  farmerId        String      @unique
-  loanAmount      Float
-  interestRate    Float
-  status          LoanStatus
+  id               String    @id @default(cuid())
+  farmerId         String    @unique
+  loanAmount       Float
+  interestRate     Float
+  status           LoanStatus
   disbursementDate DateTime?
-  repaymentDate   DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  repaymentDate    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   // Relationships
   farmer Farmer @relation(fields: [farmerId], references: [id], onDelete: Cascade)
