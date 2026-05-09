@@ -292,13 +292,13 @@ This implementation plan establishes the production-grade technical foundation f
     - Define shadow values
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 12.1, 12.3_
   
-  - [ ] 14.3 Configure viewport for mobile rendering
+  - [x] 14.3 Configure viewport for mobile rendering
     - Add viewport meta tag in root layout
     - Configure touch target sizes
     - _Requirements: 12.2, 12.5_
 
 - [x] 15. Create base component architecture
-  - [ ] 15.1 Create layout components
+  - [x] 15.1 Create layout components
     - Create src/components/layouts/RootLayout.tsx
     - Create src/components/layouts/FarmerLayout.tsx for (farmer) routes
     - Create src/components/layouts/BuyerLayout.tsx for (buyer) routes
@@ -307,7 +307,7 @@ This implementation plan establishes the production-grade technical foundation f
     - Apply responsive Tailwind classes
     - _Requirements: 10.3, 10.4, 10.5, 12.4_
   
-  - [ ] 15.2 Create primitive UI components
+  - [x] 15.2 Create primitive UI components
     - Create src/components/ui/Button.tsx with variants
     - Create src/components/ui/Input.tsx with validation states
     - Create src/components/ui/Card.tsx for content containers
@@ -315,7 +315,7 @@ This implementation plan establishes the production-grade technical foundation f
     - Colocate styles using Tailwind classes
     - _Requirements: 10.1, 10.6, 10.7_
   
-  - [ ] 15.3 Set up component organization structure
+  - [x] 15.3 Set up component organization structure
     - Create src/components/features directory
     - Add README.md documenting component organization
     - _Requirements: 10.2_
